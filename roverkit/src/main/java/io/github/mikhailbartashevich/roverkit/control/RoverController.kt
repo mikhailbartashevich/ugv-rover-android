@@ -7,7 +7,7 @@ import io.github.mikhailbartashevich.roverkit.protocol.CameraZoom
 import io.github.mikhailbartashevich.roverkit.protocol.Esp32Command
 import io.github.mikhailbartashevich.roverkit.protocol.HeadLight
 import io.github.mikhailbartashevich.roverkit.protocol.RoverAddress
-import io.github.mikhailbartashevich.roverkit.protocol.RoverCode
+import io.github.mikhailbartashevich.roverkit.protocol.CtrlCommand
 import io.github.mikhailbartashevich.roverkit.protocol.RoverLimits
 import io.github.mikhailbartashevich.roverkit.protocol.SpeedPreset
 import io.github.mikhailbartashevich.roverkit.protocol.Telemetry
@@ -97,9 +97,6 @@ class RoverController(
     /** Short user-facing notices ("Photo saved on rover"). */
     val messages: SharedFlow<String> = _messages.asSharedFlow()
 
-    /** JPEG quality of the video stream; the rover's default of 20 is blocky. Re-applied on every connect. */
-    var videoQuality: Int = 70
-
     init {
         scope.launch {
             socket.telemetry.collect { t ->
@@ -126,7 +123,6 @@ class RoverController(
                 _reachable.value = true
                 _lastError.value = null
                 socket.connect(a)
-                http.sendCommandLine(a, RoverHttp.videoQualityLine(videoQuality))
                 return true
             }
             is RoverHttp.Result.Failed -> {
@@ -185,8 +181,8 @@ class RoverController(
         }
     }
 
-    private fun ctrl(code: Int): Boolean {
-        if (socket.emitCtrl(code)) return true
+    private fun ctrl(command: CtrlCommand): Boolean {
+        if (socket.emitCtrl(command)) return true
         _messages.tryEmit("Control channel offline")
         return false
     }
@@ -272,18 +268,18 @@ class RoverController(
 
     // MARK: - Media
 
-    fun setZoom(z: CameraZoom) { if (ctrl(z.code)) _zoom.value = z }
+    fun setZoom(z: CameraZoom) { if (ctrl(CtrlCommand.zoom(z))) _zoom.value = z }
     fun cycleZoom() = setZoom(_zoom.value.next)
 
-    fun capturePhoto() { if (ctrl(RoverCode.CAPTURE_PHOTO)) _messages.tryEmit("Photo saved on rover") }
+    fun capturePhoto() { if (ctrl(CtrlCommand.CAPTURE_PHOTO)) _messages.tryEmit("Photo saved on rover") }
 
     fun toggleRecording() {
         if (_recordingSinceMs.value != null) {
-            if (!ctrl(RoverCode.RECORD_STOP)) return
+            if (!ctrl(CtrlCommand.recording(false))) return
             _recordingSinceMs.value = null
             _messages.tryEmit("Recording saved on rover")
         } else {
-            if (!ctrl(RoverCode.RECORD_START)) return
+            if (!ctrl(CtrlCommand.recording(true))) return
             _recordingSinceMs.value = now()
         }
     }
@@ -291,7 +287,7 @@ class RoverController(
     // MARK: - Lights
 
     fun setHeadLight(mode: HeadLight) {
-        if (!ctrl(mode.code)) return
+        if (!ctrl(CtrlCommand.headLight(mode))) return
         _headLight.value = mode
         pendingUntil["head"] = now() + PENDING_MS
     }
@@ -299,7 +295,7 @@ class RoverController(
     fun cycleHeadLight() = setHeadLight(_headLight.value.next)
 
     fun setChassisLight(on: Boolean) {
-        if (!ctrl(if (on) RoverCode.CHASSIS_LIGHT_ON else RoverCode.CHASSIS_LIGHT_OFF)) return
+        if (!ctrl(CtrlCommand.chassisLight(if (on) 255 else 0))) return
         _chassisLight.value = on
         pendingUntil["chassis"] = now() + PENDING_MS
     }

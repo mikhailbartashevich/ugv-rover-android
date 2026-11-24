@@ -29,6 +29,18 @@ class TelemetryTest {
         assertEquals(-5.0, t.tilt!!, 1e-9)
     }
 
+    /** The refactor-branch host sends floats (101/103 = 10303.0), led_mode 0/1/2 and base_light as PWM. */
+    @Test fun refactorBranchFormats() {
+        val t = Telemetry().merged(update(
+            """42/ctrl,["update",{"101":10303.0,"103":10401.0,"102":2.0,"114":true,"115":128,"112":1150}]""",
+        ))!!
+        assertEquals(HeadLight.ON, t.headLight)
+        assertEquals(true, t.chassisLightOn)
+        val off = t.merged(update("""42/ctrl,["update",{"102":0,"115":0}]"""))!!
+        assertEquals(HeadLight.OFF, off.headLight)
+        assertEquals(false, off.chassisLightOn)
+    }
+
     @Test fun zeroVoltageUpdatesAreIgnored() {
         assertNull(Telemetry().merged(update("""42/ctrl,["update",{"106":5,"112":0}]""")))
     }

@@ -80,6 +80,16 @@ class MainActivity : ComponentActivity() {
         if (hasFocus) hideSystemBars()
     }
 
+    override fun onStart() {
+        super.onStart()
+        vm.setForeground(true)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        vm.setForeground(false)
+    }
+
     override fun onPause() {
         super.onPause()
         vm.onBackground()

@@ -4,7 +4,7 @@ import io.github.mikhailbartashevich.roverkit.protocol.CameraZoom
 import io.github.mikhailbartashevich.roverkit.protocol.Esp32Command
 import io.github.mikhailbartashevich.roverkit.protocol.HeadLight
 import io.github.mikhailbartashevich.roverkit.protocol.RoverAddress
-import io.github.mikhailbartashevich.roverkit.protocol.RoverCode
+import io.github.mikhailbartashevich.roverkit.protocol.CtrlCommand
 import io.github.mikhailbartashevich.roverkit.protocol.SocketIo
 import io.github.mikhailbartashevich.roverkit.protocol.SocketIo.Incoming
 import org.junit.Assert.assertEquals
@@ -22,18 +22,26 @@ class SocketIoTest {
 
     @Test fun ctrlEventWrapsAStringPayload() {
         assertEquals(
-            """42/ctrl,["message","{\"A\":10201,\"B\":0,\"C\":0}"]""",
-            SocketIo.ctrlEvent(RoverCode.CAPTURE_PHOTO),
+            """42/ctrl,["message","{\"cmd\":10201,\"mode\":0}"]""",
+            SocketIo.ctrlEvent(CtrlCommand.CAPTURE_PHOTO),
         )
     }
 
-    @Test fun modeCodesMatchTheMacApp() {
-        assertEquals(listOf(10404, 10405, 10406), HeadLight.entries.map { it.code })
-        assertEquals(listOf(10104, 10105, 10106), CameraZoom.entries.map { it.code })
-        assertEquals(10202, RoverCode.RECORD_START)
-        assertEquals(10203, RoverCode.RECORD_STOP)
-        assertEquals(10407, RoverCode.CHASSIS_LIGHT_OFF)
-        assertEquals(10408, RoverCode.CHASSIS_LIGHT_ON)
+    /** Same shapes as the web UI's cmdSend on the ugv_rpi refactor branch (and the macOS app). */
+    @Test fun ctrlCommandShapes() {
+        assertEquals("""{"cmd":10201,"mode":0}""", CtrlCommand.CAPTURE_PHOTO.json)
+        assertEquals("""{"cmd":10203,"mode":1}""", CtrlCommand.recording(true).json)
+        assertEquals("""{"cmd":10203,"mode":0}""", CtrlCommand.recording(false).json)
+        assertEquals(listOf(1, 2, 4), CameraZoom.entries.map { CtrlCommand.zoom(it).mode })
+        assertEquals("""{"cmd":10104,"mode":4}""", CtrlCommand.zoom(CameraZoom.X4).json)
+        assertEquals(
+            listOf("""{"cmd":102,"mode":10404}""", """{"cmd":102,"mode":10405}""", """{"cmd":102,"mode":10406}"""),
+            HeadLight.entries.map { CtrlCommand.headLight(it).json },
+        )
+        assertEquals("""{"cmd":115,"mode":255}""", CtrlCommand.chassisLight(255).json)
+        assertEquals("""{"cmd":115,"mode":0}""", CtrlCommand.chassisLight(-3).json)
+        assertEquals("""{"cmd":114,"mode":10501}""", CtrlCommand.movementLocked(true).json)
+        assertEquals("""{"cmd":114,"mode":10502}""", CtrlCommand.movementLocked(false).json)
         assertEquals(CameraZoom.X1, CameraZoom.X4.next)
         assertEquals(HeadLight.OFF, HeadLight.ON.next)
     }
@@ -79,6 +87,8 @@ class SocketIoTest {
         assertNull(RoverAddress.parse("a b"))
         assertEquals("10.0.2.2:5055", RoverAddress("10.0.2.2", 5055).toString())
         assertEquals("192.168.50.5", RoverAddress("192.168.50.5").toString())
-        assertEquals("http://192.168.50.5:5000/video_feed", RoverAddress("192.168.50.5").videoUrl)
+        assertEquals("rtsp://192.168.1.158:8554/cam", RoverAddress("192.168.1.158").rtspUrl)
+        assertEquals("rtsp://10.0.2.2:8609/cam", RoverAddress("10.0.2.2", 5055).rtspUrl)
+        assertEquals("http://192.168.1.158:5000/media/pictures/a.jpg", RoverAddress("192.168.1.158").pictureUrl("a.jpg"))
     }
 }

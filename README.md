@@ -15,8 +15,9 @@ with a light-catching rim, a top sheen and a soft shadow. The sticks are glass d
 - **Connection**: the address is saved. *Find rover* tries the saved address, then the rover's own
   hotspot (AccessPopup, `192.168.50.5`), then scans the phone's /24 networks on port 5000 for the rover's web app.
   When the rover hotspot has no internet, the app pins itself to that Wi‑Fi so Android doesn't send rover traffic over mobile data.
-- **Live video**: full-screen MJPEG from `/video_feed` with a centre reticle. Fill/fit is a toggle in the connection dialog, and JPEG quality is a slider there
-  (it sends `video -q N`; the rover's default is 20).
+- **Live video**: full-screen H.264 over RTSP from the rover's mediamtx (`rtsp://<ip>:8554/cam`, 1280×960),
+  played by Media3 ExoPlayer over TCP with a near-zero buffer for low latency. It reconnects on errors and stalls.
+  There's a centre reticle, and fill/fit is a toggle in the connection dialog.
 - **Telemetry**: battery voltage and % for the 3S pack (9.6 V empty … 12.6 V full, **LOW** below 10 V), CPU,
   temperature, Wi‑Fi RSSI, and video fps.
 - **Driving**:
@@ -44,20 +45,45 @@ with a light-catching rim, a top sheen and a soft shadow. The sticks are glass d
 
 ```
 roverkit/   Android library, no UI: protocol + network + control logic (unit-tested on the JVM)
-  protocol/   RoverCodes, Esp32Command (JSON encoding), SocketIo (frames), Telemetry, RoverAddress
-  net/        RoverSocket (Socket.IO over OkHttp WebSocket), RoverHttp, RoverScanner, MjpegStream
+  protocol/   RoverCodes (CtrlCommand), Esp32Command (JSON encoding), SocketIo (frames), Telemetry, RoverAddress
+  net/        RoverSocket (Socket.IO over OkHttp WebSocket), RoverHttp, RoverScanner
   control/    RoverController (drive/camera loops, lights, media), DriveMath (stick → command)
 app/        Compose UI
-  control/    RoverViewModel, NetworkMonitor, GamepadInput
+  control/    RoverViewModel, RoverVideoPlayer (Media3 RTSP), NetworkMonitor, GamepadInput
   ui/screen/  ControlScreen
   ui/components/  FloatingStick, TelemetryChips, ControlButtons, StatusViews, Hinted, Haptics
   ui/dialogs/ ConnectionDialog, HelpDialog
   ui/theme/   colours, theme, Glass.kt (the liquid-glass modifier and glossy knob drawing)
 ```
 
-Protocol summary: Socket.IO v5 / Engine.IO v4 at `ws://<ip>:5000/socket.io/?EIO=4&transport=websocket`.
-ESP32 commands go out as `42/json,["json",{…}]`, mode codes as `42/ctrl,["message","{\"A\":…,\"B\":0,\"C\":0}"]`,
-and telemetry arrives as `42/ctrl,["update",{…}]`. The HTTP fallback is `POST /send_command` with `command=base -c {json}`.
+## Protocol
+
+The app speaks to Waveshare **ugv_rpi on the `refactor/debian12-2025.10.01-py3.11` branch**, the same as the macOS app.
+
+- **Socket.IO** v5 / Engine.IO v4 at `ws://<ip>:5000/socket.io/?EIO=4&transport=websocket`. On `0{…}` the app joins `/ctrl` and `/json`,
+  and answers ping `2` with `3`.
+- **ESP32 commands** (driving T:13, wheels T:1, gimbal T:133) go out as `42/json,["json",{"T":13,"X":0.30,"Z":0}]`.
+  The HTTP fallback is `POST /send_command` with `command=base -c {json}`.
+- **Mode commands** go out as `42/ctrl,["message","{\"cmd\":X,\"mode\":Y}"]`, like the web UI's `cmdSend`:
+
+  | Action | cmd | mode |
+  |---|---|---|
+  | Head light | 102 | 10404 off · 10405 auto · 10406 on |
+  | Chassis light | 115 | PWM 0…255 |
+  | Zoom | 10104 | 1 · 2 · 4 |
+  | Photo | 10201 | 0 |
+  | Record | 10203 | 1 start · 0 stop |
+  | Movement lock | 114 | 10501 lock · 10502 unlock |
+  | Vision mode / reaction | 101 / 103 | 10301…10309 / 10401…10403 |
+
+- **Telemetry** arrives as `42/ctrl,["update",{…}]`: 106 CPU, 107 temperature, 108 RAM, 111 RSSI, 112 volts×100, 113 fps,
+  102 head light (0/1/2), 115 chassis PWM. 101 and 103 arrive as floats. Updates with 112 = 0 are ignored.
+- **Video** is H.264 at `rtsp://<ip>:8554/cam`. The RTSP port is the web port + 3554, so a mock on :5055 streams on :8609.
+  The old MJPEG `/video_feed` and `video -q` are gone.
+- **Media**: photos are at `GET /media/pictures/<name>`, videos at `/videos/<name>`, and the lists come from `/get_photo_names` and `/get_video_names`.
+
+On the Android emulator, the goldfish hardware H.264 decoder fails on this stream, so the app tries goldfish codecs last.
+Real phones use their hardware decoder.
 
 ## Build
 
@@ -117,4 +143,4 @@ From the Android emulator, the Mac is `10.0.2.2`:
 adb shell am start -n io.github.mikhailbartashevich.ugvcontrol/.MainActivity --es host 10.0.2.2:5055
 ```
 
-The mock logs every command it receives to `Tools/mock-rover/data/commands.log`.
+It serves H.264 over RTSP at web port + 3554 via ffmpeg (needs `ffmpeg` on the Mac). The mock logs every command it receives to `Tools/mock-rover/data/commands.log`.

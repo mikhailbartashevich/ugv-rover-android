@@ -5,7 +5,14 @@ package io.github.mikhailbartashevich.roverkit.protocol
  */
 data class RoverAddress(val host: String, val port: Int = DEFAULT_PORT) {
     val baseUrl: String get() = "http://$host:$port"
-    val videoUrl: String get() = "$baseUrl/video_feed"
+    /**
+     * The camera as H.264 over RTSP from the rover's mediamtx (`rtsp://<ip>:8554/cam`). The RTSP
+     * port sits [RTSP_PORT_OFFSET] above the web port, so a mock rover on :5055 streams on :8609.
+     */
+    val rtspUrl: String get() = "rtsp://$hostForUrl:${port + RTSP_PORT_OFFSET}/cam"
+    /** A photo taken on the rover (served from /media/pictures/ since the refactor branch). */
+    fun pictureUrl(name: String): String = "$baseUrl/media/pictures/$name"
+    private val hostForUrl: String get() = if (':' in host) "[$host]" else host
     val sendCommandUrl: String get() = "$baseUrl/send_command"
 
     /** How it's shown and saved: the port only when it isn't the default. */
@@ -13,6 +20,7 @@ data class RoverAddress(val host: String, val port: Int = DEFAULT_PORT) {
 
     companion object {
         const val DEFAULT_PORT = 5000
+        const val RTSP_PORT_OFFSET = 8554 - 5000
         /** The rover's own hotspot address (AccessPopup). */
         const val HOTSPOT_HOST = "192.168.50.5"
 

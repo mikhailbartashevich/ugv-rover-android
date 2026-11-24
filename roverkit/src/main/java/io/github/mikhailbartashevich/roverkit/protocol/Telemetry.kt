@@ -53,8 +53,10 @@ data class Telemetry(
             voltage = num(KEY_VOLTAGE)?.let { it / 100 } ?: voltage,
             pan = num(109) ?: pan,
             tilt = num(110) ?: tilt,
-            headLight = num(102)?.let { HeadLight.fromIndex(it.toInt()) } ?: headLight,
-            chassisLightOn = (update["115"]?.let { it.booleanOrNull ?: it.doubleOrNull?.let { d -> d != 0.0 } })
+            // led_mode: 0 off, 1 auto, 2 on (may arrive as a float).
+            headLight = num(102)?.let { HeadLight.fromIndex(Math.round(it).toInt()) } ?: headLight,
+            // base_light: PWM 0…255 (older hosts sent 0/1 or a bool).
+            chassisLightOn = (update["115"]?.let { it.booleanOrNull ?: num(115)?.let { d -> d > 0.0 } })
                 ?: chassisLightOn,
         )
     }

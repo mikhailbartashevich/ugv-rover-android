@@ -55,7 +55,5 @@ class Esp32CommandTest {
 
     @Test fun httpCommandLines() {
         assertEquals("""base -c {"T":1,"L":0,"R":0}""", RoverHttp.baseCommandLine(Esp32Command.STOP))
-        assertEquals("video -q 70", RoverHttp.videoQualityLine(70))
-        assertEquals("video -q 100", RoverHttp.videoQualityLine(250))
     }
 }

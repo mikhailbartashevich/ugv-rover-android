@@ -29,7 +29,7 @@ class RoverHttp(private val client: OkHttpClient = defaultClient) {
 
     /**
      * Runs a line through the host's command line (`POST /send_command`,
-     * form `command=…`), e.g. `base -c {"T":1,"L":0,"R":0}` or `video -q 70`.
+     * form `command=…`), e.g. `base -c {"T":1,"L":0,"R":0}`.
      */
     suspend fun sendCommandLine(address: RoverAddress, line: String): Result = withContext(Dispatchers.IO) {
         try {
@@ -57,6 +57,5 @@ class RoverHttp(private val client: OkHttpClient = defaultClient) {
             .build()
 
         fun baseCommandLine(command: Esp32Command) = "base -c ${command.json}"
-        fun videoQualityLine(quality: Int) = "video -q ${quality.coerceIn(1, 100)}"
     }
 }

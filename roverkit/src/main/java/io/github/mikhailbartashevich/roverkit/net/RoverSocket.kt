@@ -1,5 +1,6 @@
 package io.github.mikhailbartashevich.roverkit.net
 
+import io.github.mikhailbartashevich.roverkit.protocol.CtrlCommand
 import io.github.mikhailbartashevich.roverkit.protocol.Esp32Command
 import io.github.mikhailbartashevich.roverkit.protocol.RoverAddress
 import io.github.mikhailbartashevich.roverkit.protocol.SocketIo
@@ -71,10 +72,10 @@ class RoverSocket(private val http: OkHttpClient = RoverHttp.defaultClient) {
         _state.value = State.DISCONNECTED
     }
 
-    /** Mode/action command, same as the web UI's `cmdSend(A, B, C)`. */
-    fun emitCtrl(code: Int, b: Int = 0, c: Int = 0): Boolean {
+    /** Mode/action command, same as the web UI's `cmdSend(cmd, mode)`. */
+    fun emitCtrl(command: CtrlCommand): Boolean {
         if (!isConnected) return false
-        return sendRaw(SocketIo.ctrlEvent(code, b, c))
+        return sendRaw(SocketIo.ctrlEvent(command))
     }
 
     /** ESP32 command over the `/json` namespace. */

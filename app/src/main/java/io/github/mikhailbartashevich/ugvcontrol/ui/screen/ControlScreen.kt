@@ -5,7 +5,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +34,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.ui.compose.ContentFrame
+import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -70,11 +75,11 @@ import kotlinx.coroutines.delay
  * Left half = drive stick, right half = camera stick, STOP between the thumbs,
  * status bar on top, lights top-left, camera and media top-right.
  */
+@OptIn(UnstableApi::class)
 @Composable
 fun ControlScreen(vm: RoverViewModel, onRequestLocalNetwork: () -> Unit) {
     val rover = vm.rover
-    val frame by vm.video.collectAsStateWithLifecycle()
-    val fps by vm.videoFps.collectAsStateWithLifecycle()
+    val fps by vm.video.fps.collectAsStateWithLifecycle()
     val t by rover.telemetry.collectAsStateWithLifecycle()
     val state by vm.socketState.collectAsStateWithLifecycle()
     val reachable by rover.reachable.collectAsStateWithLifecycle()
@@ -111,13 +116,15 @@ fun ControlScreen(vm: RoverViewModel, onRequestLocalNetwork: () -> Unit) {
                     0f to Color(0xFF1C2A33), 0.6f to Color(0xFF0C1216), 1f to Color.Black,
                     center = Offset(900f, 300f), radius = 1600f,
                 )))
-                frame?.let {
-                    Image(
-                        it, contentDescription = "Live camera view from the rover",
-                        contentScale = if (fill) ContentScale.Crop else ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
+                // TextureView (not SurfaceView) so the glass panels can blur the video.
+                ContentFrame(
+                    player = vm.video.player,
+                    modifier = Modifier.fillMaxSize().semantics { contentDescription = "Live camera view from the rover" },
+                    surfaceType = SURFACE_TYPE_TEXTURE_VIEW,
+                    contentScale = if (fill) ContentScale.Crop else ContentScale.Fit,
+                    keepContentOnReset = true,
+                    shutter = {},
+                )
             }
             Reticle(Modifier.align(Alignment.Center))
 

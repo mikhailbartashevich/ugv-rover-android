@@ -11,13 +11,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -42,7 +40,6 @@ fun ConnectionDialog(vm: RoverViewModel, fill: Boolean, onFillChange: (Boolean) 
     val searching by rover.searching.collectAsStateWithLifecycle()
     val error by rover.lastError.collectAsStateWithLifecycle()
     var text by remember { mutableStateOf(address.toString()) }
-    var quality by remember { mutableFloatStateOf(rover.videoQuality.toFloat()) }
     val parsed = RoverAddress.parse(text)
 
     AlertDialog(
@@ -78,12 +75,6 @@ fun ConnectionDialog(vm: RoverViewModel, fill: Boolean, onFillChange: (Boolean) 
                         modifier = Modifier.semantics { contentDescription = "Fill in the rover hotspot address 192.168.50.5" },
                     ) { Text("Hotspot") }
                 }
-                Text("Video quality: ${quality.toInt()}", fontSize = 13.sp)
-                Slider(
-                    value = quality, onValueChange = { quality = it }, valueRange = 10f..100f,
-                    onValueChangeFinished = { vm.setVideoQuality(quality.toInt()) },
-                    modifier = Modifier.semantics { contentDescription = "Video JPEG quality. Higher is sharper but needs more Wi‑Fi bandwidth." },
-                )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Fill screen (crop video)", fontSize = 13.sp, modifier = Modifier.weight(1f))
                     Switch(fill, onFillChange,

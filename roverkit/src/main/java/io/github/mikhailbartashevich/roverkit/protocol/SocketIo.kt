@@ -26,11 +26,9 @@ object SocketIo {
     /** ESP32 command, like the web UI's `socketJson.emit('json', …)`. */
     fun jsonEvent(command: Esp32Command): String = "42$NS_JSON,[\"json\",${command.json}]"
 
-    /** Mode/action command, same as the web UI's `cmdSend(A, B, C)`: the payload is a JSON *string*. */
-    fun ctrlEvent(code: Int, b: Int = 0, c: Int = 0): String {
-        val message = "{\"A\":$code,\"B\":$b,\"C\":$c}"
-        return "42$NS_CTRL," + JsonArray(listOf(JsonPrimitive("message"), JsonPrimitive(message))).toString()
-    }
+    /** Mode/action command, same as the web UI's `cmdSend(cmd, mode)`: the payload is a JSON *string*. */
+    fun ctrlEvent(command: CtrlCommand): String =
+        "42$NS_CTRL," + JsonArray(listOf(JsonPrimitive("message"), JsonPrimitive(command.json))).toString()
 
     /** What an incoming frame means for the client. */
     sealed interface Incoming {

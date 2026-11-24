@@ -1,21 +1,43 @@
 package io.github.mikhailbartashevich.roverkit.protocol
 
 /**
- * Action codes the rover's host program accepts on the Socket.IO `/ctrl` channel
- * (`{"A": code, "B": 0, "C": 0}`), as defined in ugv_rpi's config.yaml.
- * Mirrors `RoverCodes.swift` in the macOS app.
+ * A command on the rover's Socket.IO `/ctrl` channel: `{"cmd": X, "mode": Y}`, the way the
+ * stock web UI's `cmdSend(cmd, mode)` sends it (ugv_rpi refactor branch). `cmd` picks the
+ * action and `mode` is its argument; both are codes from ugv_rpi's config.yaml.
+ * Mirrors `CtrlCommand` in the macOS app.
  */
-object RoverCode {
-    const val CAPTURE_PHOTO = 10201
-    const val RECORD_START = 10202
-    const val RECORD_STOP = 10203
-    const val MOVEMENT_LOCK = 10501
-    const val MOVEMENT_UNLOCK = 10502
-    const val CHASSIS_LIGHT_OFF = 10407
-    const val CHASSIS_LIGHT_ON = 10408
+data class CtrlCommand(val cmd: Int, val mode: Int = 0) {
+    val json: String get() = "{\"cmd\":$cmd,\"mode\":$mode}"
+
+    companion object {
+        val CAPTURE_PHOTO = CtrlCommand(RoverCode.CAPTURE_PHOTO)
+        fun recording(on: Boolean) = CtrlCommand(RoverCode.VIDEO, if (on) 1 else 0)
+        fun zoom(z: CameraZoom) = CtrlCommand(RoverCode.ZOOM, z.factor)
+        fun headLight(l: HeadLight) = CtrlCommand(RoverCode.HEAD_LIGHT, l.code)
+        fun movementLocked(locked: Boolean) =
+            CtrlCommand(RoverCode.MOVEMENT_LOCK, if (locked) RoverCode.LOCK_ON else RoverCode.LOCK_OFF)
+        /** Chassis lights: `mode` is the PWM value, 0…255. */
+        fun chassisLight(pwm: Int) = CtrlCommand(RoverCode.CHASSIS_LIGHT, pwm.coerceIn(0, 255))
+    }
 }
 
-/** Head light mode. The rover reports the index (0/1/2) as telemetry key 102. */
+/** Codes from ugv_rpi's config.yaml. Feedback keys double as the command that sets them. */
+object RoverCode {
+    // Commands (`cmd`).
+    const val DETECT_TYPE = 101      // fb.detect_type, mode = vision mode 10301…10309
+    const val HEAD_LIGHT = 102       // fb.led_mode, mode = 10404 off / 10405 auto / 10406 on
+    const val DETECT_REACT = 103     // fb.detect_react, mode = 10401…10403
+    const val MOVEMENT_LOCK = 114    // fb.cv_movtion_mode, mode = LOCK_ON / LOCK_OFF
+    const val CHASSIS_LIGHT = 115    // fb.base_light, mode = PWM 0…255
+    const val ZOOM = 10104           // mode = 1, 2 or 4
+    const val CAPTURE_PHOTO = 10201
+    const val VIDEO = 10203          // mode = 1 start, 0 stop
+    // Arguments (`mode`).
+    const val LOCK_ON = 10501
+    const val LOCK_OFF = 10502
+}
+
+/** Head light mode. `code` is the `mode` sent with cmd 102; the rover reports the index (0/1/2) as telemetry key 102. */
 enum class HeadLight(val index: Int, val code: Int, val title: String) {
     OFF(0, 10404, "Off"),
     AUTO(1, 10405, "Auto"),
@@ -29,11 +51,11 @@ enum class HeadLight(val index: Int, val code: Int, val title: String) {
     }
 }
 
-/** Digital zoom of the camera stream, done on the rover. */
-enum class CameraZoom(val factor: Int, val code: Int) {
-    X1(1, 10104),
-    X2(2, 10105),
-    X4(4, 10106);
+/** Digital zoom of the camera stream, done on the rover; `factor` is the `mode` sent with cmd 10104. */
+enum class CameraZoom(val factor: Int) {
+    X1(1),
+    X2(2),
+    X4(4);
 
     val title: String get() = "$factor×"
     val next: CameraZoom get() = entries[(ordinal + 1) % entries.size]

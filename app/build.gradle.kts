@@ -43,6 +43,9 @@ dependencies {
     implementation(libs.coroutines.android)
     implementation(libs.haze)
     implementation(libs.haze.blur)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.rtsp)
+    implementation(libs.media3.ui.compose)
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
 }

@@ -1,7 +1,9 @@
 package io.github.mikhailbartashevich.roverkit
 
 import io.github.mikhailbartashevich.roverkit.net.RoverSocket
+import io.github.mikhailbartashevich.roverkit.protocol.CtrlCommand
 import io.github.mikhailbartashevich.roverkit.protocol.Esp32Command
+import io.github.mikhailbartashevich.roverkit.protocol.HeadLight
 import io.github.mikhailbartashevich.roverkit.protocol.RoverAddress
 import okhttp3.Response
 import okhttp3.WebSocket
@@ -68,8 +70,8 @@ class RoverSocketTest {
 
         assertTrue(socket.emit(Esp32Command.velocity(0.3, 0.0)))
         assertEquals("""42/json,["json",{"T":13,"X":0.30,"Z":0}]""", next())
-        assertTrue(socket.emitCtrl(10406))
-        assertEquals("""42/ctrl,["message","{\"A\":10406,\"B\":0,\"C\":0}"]""", next())
+        assertTrue(socket.emitCtrl(CtrlCommand.headLight(HeadLight.ON)))
+        assertEquals("""42/ctrl,["message","{\"cmd\":102,\"mode\":10406}"]""", next())
         socket.disconnect()
         assertEquals(RoverSocket.State.DISCONNECTED, socket.state.value)
     }
